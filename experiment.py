@@ -23,7 +23,7 @@ LN2 = math.log(2.)
 
 
 # data instance object
-Instance = namedtuple('Instance', 'p t fv h a lang right wrong ts uid lexeme'.split())
+Instance = namedtuple('Instance', 'p t fv h a lang right wrong right_hist seen_hist ts uid lexeme'.split())
 
 
 class SpacedRepetitionModel(object):
@@ -163,13 +163,15 @@ class SpacedRepetitionModel(object):
 
     def dump_detailed_predictions(self, fname, testset):
         with open(fname, 'wb') as f:
-            f.write('p\tpp\th\thh\tlang\tuser_id\ttimestamp\tlexeme_tag\n')
+            f.write('p\tpp\th\thh\tt\tright\tseen\tlang\tuser_id\ttimestamp\tlexeme_tag\n')
             for inst in testset:
                 pp, hh = self.predict(inst)
                 for i in range(inst.right):
-                    f.write('1.0\t%.4f\t%.4f\t%.4f\t%s\t%s\t%d\t%s\n' % (pp, inst.h, hh, inst.lang, inst.uid, inst.ts, inst.lexeme))
+                    f.write('1.0\t%.4f\t%.4f\t%.4f\t%.4f\t%d\t%d\t%s\t%s\t%d\t%s\n' % (pp, inst.h, hh, inst.t, inst.right_hist, inst.seen_hist,
+                                                                                 inst.lang, inst.uid, inst.ts, inst.lexeme))
                 for i in range(inst.wrong):
-                    f.write('0.0\t%.4f\t%.4f\t%.4f\t%s\t%s\t%d\t%s\n' % (pp, inst.h, hh, inst.lang, inst.uid, inst.ts, inst.lexeme))
+                    f.write('0.0\t%.4f\t%.4f\t%.4f\t%.4f\t%d\t%d\t%s\t%s\t%d\t%s\n' % (pp, inst.h, hh, inst.t, inst.right_hist, inst.seen_hist,
+                                                                                 inst.lang, inst.uid, inst.ts, inst.lexeme))
 
 
 def pclip(p):
@@ -250,7 +252,7 @@ def read_data(input_file, method, omit_bias=False, omit_lexemes=False, max_lines
             fv.append((intern('bias'), 1.))
         if not omit_lexemes:
             fv.append((intern('%s:%s' % (row['learning_language'], lexeme_string)), 1.))
-        instances.append(Instance(p, t, fv, h, (right+2.)/(seen+4.), lang, right_this, wrong_this, timestamp, user_id, lexeme_string))
+        instances.append(Instance(p, t, fv, h, (right+2.)/(seen+4.), lang, right_this, wrong_this, right, seen, timestamp, user_id, lexeme_string))
         if i % 1000000 == 0:
             sys.stderr.write('%d...' % i)
     sys.stderr.write('done!\n')
@@ -300,5 +302,7 @@ if __name__ == "__main__":
     if not os.path.exists('results/'):
         os.makedirs('results/')
     model.dump_weights('results/'+filebase+'.weights')
-    model.dump_predictions('results/'+filebase+'.preds', testset)
+    model.dump_detailed_predictions('results/'+filebase+'.preds', testset)
+    # model.dump_detailed_predictions('results/train.'+filebase+'.preds', trainset)
     # model.dump_detailed_predictions('results/'+filebase+'.detailed', testset)
+
